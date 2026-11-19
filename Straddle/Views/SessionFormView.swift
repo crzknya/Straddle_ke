@@ -6,7 +6,6 @@ struct SessionFormView: View {
 
     private let original: PokerSession?
     @State private var date: Date
-    @State private var type: SessionType
     @State private var game: String
     @State private var stakes: String
     @State private var venue: String
@@ -27,7 +26,6 @@ struct SessionFormView: View {
         original = session
         let source = session ?? template
         _date = State(initialValue: session?.date ?? .now)
-        _type = State(initialValue: source?.type ?? .cash)
         _game = State(initialValue: source?.game ?? PokerSession.defaultGame)
         _stakes = State(initialValue: source?.stakes ?? "")
         _venue = State(initialValue: source?.venue ?? "")
@@ -49,7 +47,6 @@ struct SessionFormView: View {
         PokerSession(
             id: original?.id ?? UUID(),
             date: date,
-            type: type,
             game: game.trimmingCharacters(in: .whitespacesAndNewlines),
             stakes: stakes.trimmingCharacters(in: .whitespacesAndNewlines),
             venue: venue.trimmingCharacters(in: .whitespacesAndNewlines),
@@ -75,19 +72,15 @@ struct SessionFormView: View {
 
     var body: some View {
         Form {
-            Section("Format") {
-                Picker("Session type", selection: $type) {
-                    ForEach(SessionType.allCases) { Text($0.rawValue).tag($0) }
-                }
-                .pickerStyle(.segmented)
+            Section("When & where") {
                 DatePicker("Started", selection: $date, in: ...Date.now)
+                ChoiceField(title: "Venue", text: $venue, options: store.venueOptions, placeholder: "Venue name")
             }
 
             Section("Game") {
-                SuggestingTextField(title: "Game (e.g. No-Limit Hold’em)", text: $game, suggestions: store.recentValues(\.game))
-                SuggestingTextField(title: type == .cash ? "Stakes (e.g. 50/100)" : "Tournament / level", text: $stakes,
-                                    suggestions: store.recentValues(\.stakes), capitalization: .never)
-                SuggestingTextField(title: "Venue", text: $venue, suggestions: store.recentValues(\.venue))
+                ChoiceField(title: "Game", text: $game, options: store.recentValues(\.game), placeholder: "Game (e.g. No-Limit Hold’em)")
+                ChoiceField(title: "Stakes", text: $stakes, options: store.recentValues(\.stakes),
+                            placeholder: "Stakes (e.g. 50/100)", capitalization: .never)
             }
 
             Section {
@@ -99,9 +92,9 @@ struct SessionFormView: View {
             }
 
             Section("Results") {
-                AmountRow(title: type == .cash ? "Total buy-in" : "Buy-in + re-entries", value: $buyIn, currency: currency, rate: effectiveRate)
+                AmountRow(title: "Total buy-in", value: $buyIn, currency: currency, rate: effectiveRate)
                 Stepper("Rebuys / add-ons: \(rebuyCount)", value: $rebuyCount, in: 0...99)
-                AmountRow(title: type == .cash ? "Cash-out" : "Prize", value: $cashOut, currency: currency, rate: effectiveRate)
+                AmountRow(title: "Cash-out", value: $cashOut, currency: currency, rate: effectiveRate)
                 HStack {
                     Text("Profit")
                     Spacer()
@@ -148,6 +141,7 @@ struct SessionFormView: View {
         do {
             let value = draft
             try store.upsert(value)
+            store.rememberVenue(value.venue)
             store.rememberCurrency(value.currency, rate: value.exchangeRate)
             dismiss()
         } catch {

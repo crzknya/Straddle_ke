@@ -23,7 +23,6 @@ final class SessionStoreTests: XCTestCase {
         let store = SessionStore(fileURL: fileURL, defaults: defaults, loadImmediately: false)
         let session = PokerSession(
             date: Date(timeIntervalSince1970: 1_700_000_000),
-            type: .cash,
             game: "No-Limit Hold’em",
             stakes: "$2/$5",
             venue: "Aria",

@@ -9,9 +9,9 @@ final class AnalyticsEngineTests: XCTestCase {
         let secondDate = try XCTUnwrap(calendar.date(from: DateComponents(year: 2025, month: 1, day: 2)))
         let thirdDate = try XCTUnwrap(calendar.date(from: DateComponents(year: 2025, month: 1, day: 3)))
         let sessions = [
-            make(date: secondDate, type: .cash, game: "PLO", venue: "Bellagio", buyIn: 500, cashOut: 300, minutes: 120),
-            make(date: firstDate, type: .cash, game: "NLH", venue: "Aria", buyIn: 200, cashOut: 500, minutes: 180),
-            make(date: thirdDate, type: .tournament, game: "NLH", venue: "Aria", buyIn: 100, cashOut: 400, minutes: 300)
+            make(date: secondDate, game: "PLO", venue: "Bellagio", buyIn: 500, cashOut: 300, minutes: 120),
+            make(date: firstDate, game: "NLH", venue: "Aria", buyIn: 200, cashOut: 500, minutes: 180),
+            make(date: thirdDate, game: "NLH", venue: "Aria", buyIn: 100, cashOut: 400, minutes: 300)
         ]
 
         let result = AnalyticsEngine.calculate(sessions)
@@ -26,17 +26,21 @@ final class AnalyticsEngineTests: XCTestCase {
         XCTAssertEqual(result.averageLoss, -200)
         XCTAssertEqual(result.bestSession?.profit, 300)
         XCTAssertEqual(result.worstSession?.profit, -200)
-        XCTAssertEqual(result.cashProfit, 100)
-        XCTAssertEqual(result.tournamentProfit, 300)
-        XCTAssertEqual(result.tournamentROI, 3, accuracy: 0.0001)
+        XCTAssertEqual(result.totalBuyIn, 800)
+        XCTAssertEqual(result.roi, 0.5, accuracy: 0.0001)
+        XCTAssertEqual(result.maxDrawdown, 200)
+        XCTAssertEqual(result.peakProfit, 400)
+        XCTAssertEqual(result.longestWinStreak, 1)
+        XCTAssertEqual(result.currentStreak, 1)
+        XCTAssertEqual(result.trend.map(\.index), [1, 2, 3])
         XCTAssertEqual(result.trend.map(\.cumulativeProfit), [300, 100, 400])
     }
 
     func testBreakdownsAggregateAndSortByProfit() {
         let sessions = [
-            make(type: .cash, game: "NLH", venue: "Home", buyIn: 100, cashOut: 250, minutes: 60),
-            make(type: .cash, game: "NLH", venue: "Home", buyIn: 100, cashOut: 50, minutes: 60),
-            make(type: .cash, game: "PLO", venue: "Club", buyIn: 100, cashOut: 120, minutes: 30)
+            make(game: "NLH", venue: "Home", buyIn: 100, cashOut: 250, minutes: 60),
+            make(game: "NLH", venue: "Home", buyIn: 100, cashOut: 50, minutes: 60),
+            make(game: "PLO", venue: "Club", buyIn: 100, cashOut: 120, minutes: 30)
         ]
         let result = AnalyticsEngine.calculate(sessions)
 
@@ -52,7 +56,9 @@ final class AnalyticsEngineTests: XCTestCase {
         XCTAssertEqual(result.totalProfit, 0)
         XCTAssertEqual(result.hourlyRate, 0)
         XCTAssertEqual(result.winRate, 0)
-        XCTAssertEqual(result.tournamentROI, 0)
+        XCTAssertEqual(result.roi, 0)
+        XCTAssertNil(result.bigBlindsPerHour)
+        XCTAssertTrue(result.resultHistogram.isEmpty)
         XCTAssertNil(result.bestSession)
         XCTAssertTrue(result.trend.isEmpty)
     }
@@ -65,15 +71,42 @@ final class AnalyticsEngineTests: XCTestCase {
         XCTAssertEqual(AnalyticsEngine.sessions([recent, old], in: .all, now: now, calendar: calendar).count, 2)
     }
 
+    func testBigBlindsPerHourAndVariance() {
+        let sessions = [
+            make(buyIn: 10_000, cashOut: 20_000, minutes: 120, stakes: "50/100"),   // +100 BB за 2 ч
+            make(buyIn: 10_000, cashOut: 5_000, minutes: 180, stakes: "50/100")     // −50 BB за 3 ч
+        ]
+        let result = AnalyticsEngine.calculate(sessions)
+        XCTAssertEqual(result.bigBlindsWon ?? 0, 50, accuracy: 0.0001)
+        XCTAssertEqual(result.bigBlindsPerHour ?? 0, 10, accuracy: 0.0001)
+        XCTAssertGreaterThan(result.standardDeviation, 0)
+        XCTAssertGreaterThan(result.standardDeviationPerHour, 0)
+        XCTAssertEqual(result.resultHistogram.map(\.count).reduce(0, +), 2)
+    }
+
+    func testStakesParser() {
+        XCTAssertEqual(StakesParser.bigBlind("50/100"), 100)
+        XCTAssertEqual(StakesParser.bigBlind("$1/$2"), 2)
+        XCTAssertEqual(StakesParser.bigBlind("100/200/400"), 200)
+        XCTAssertNil(StakesParser.bigBlind("Home game"))
+    }
+
+    func testWeekdayBreakdownStartsMonday() {
+        let result = AnalyticsEngine.calculate([make()])
+        XCTAssertEqual(result.byWeekday.count, 7)
+        XCTAssertEqual(result.byWeekday.map(\.sessions).reduce(0, +), 1)
+        XCTAssertEqual(result.byTimeOfDay.map(\.sessions).reduce(0, +), 1)
+    }
+
     private func make(
         date: Date = .now,
-        type: SessionType = .cash,
         game: String = "NLH",
         venue: String = "Aria",
         buyIn: Decimal = 100,
         cashOut: Decimal = 200,
-        minutes: Int = 60
+        minutes: Int = 60,
+        stakes: String = "1/2"
     ) -> PokerSession {
-        PokerSession(date: date, type: type, game: game, stakes: "1/2", venue: venue, buyIn: buyIn, cashOut: cashOut, durationMinutes: minutes)
+        PokerSession(date: date, game: game, stakes: stakes, venue: venue, buyIn: buyIn, cashOut: cashOut, durationMinutes: minutes)
     }
 }

@@ -1,6 +1,6 @@
 # Straddle
 
-Straddle is a privacy-first, local-only iPhone app for tracking poker sessions, profit, bankroll trends, and performance analytics.
+Straddle is a privacy-first, local-only iPhone app for tracking cash-game poker sessions, profit, bankroll trends, and performance analytics.
 
 <p align="center">
   <img src="docs/images/straddle-showcase.png" alt="Straddle dashboard, session history, and analytics displayed in restrained iPhone frames" width="100%">
@@ -20,14 +20,16 @@ Straddle is a privacy-first, local-only iPhone app for tracking poker sessions, 
 
 ## Features
 
-- Cash-game and tournament session tracking
+- Cash-game session tracking with a venue dropdown (saved venues are managed in Settings)
 - **Live sessions**: start a timer, add rebuys/add-ons, take breaks, finish with cash-out — the session is saved automatically and survives app restarts
 - **Multi-currency**: each session keeps its game currency and the rate you entered (1 USD = X); every statistic is shown in US dollars
 - **Backup & restore** (Settings tab): save to Files, share via Telegram/Mail/AirDrop, CSV export, import with merge/replace preview
 - Fast entry for date, game, stakes, venue, buy-in, cash-out, and duration
 - Cumulative profit chart and all-time dashboard
 - Hourly rate, total hours, session count, win rate, average win/loss, and best/worst sessions
-- Cash-versus-tournament results and tournament ROI
+- Charts: bankroll by date/sessions/hours, monthly results, day of week, time of day, session length, result distribution, win/loss, stakes and venue comparisons
+- Stats: BB/hour, standard deviation per session and per hour, max drawdown, streaks, ROI on buy-ins, rebuy rate
+- Reports by month, year, stakes, venue, game; results calendar; filters by period, venue and stakes
 - Stakes, venue and game performance breakdowns, max drawdown, current streak
 - Searchable, editable session history
 - Premium near-black interface with restrained electric-purple and cyan accents

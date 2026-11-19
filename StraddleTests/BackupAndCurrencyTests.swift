@@ -56,7 +56,6 @@ final class BackupAndCurrencyTests: XCTestCase {
         let parsed = try SessionStore.parseBackup(Data(("\u{FEFF}" + json).utf8))
         XCTAssertEqual(parsed.sessions.count, 2)
         XCTAssertEqual(parsed.skipped, 1)
-        XCTAssertEqual(parsed.sessions[0].type, .tournament)
         XCTAssertEqual(parsed.sessions[0].buyIn, Decimal(string: "1500.5"))
         XCTAssertEqual(parsed.sessions[0].durationMinutes, 90)
     }

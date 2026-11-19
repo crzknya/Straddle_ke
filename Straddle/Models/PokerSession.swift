@@ -1,29 +1,11 @@
 import Foundation
 
-enum SessionType: String, Codable, CaseIterable, Identifiable, Sendable {
-    case cash = "Cash Game"
-    case tournament = "Tournament"
-
-    var id: String { rawValue }
-    var shortName: String { self == .cash ? "Cash" : "Tournament" }
-
-    /// Терпимый разбор: принимает "Cash Game", "cash", "Tournament", "mtt" и т.п.
-    init(from decoder: Decoder) throws {
-        let raw = (try? decoder.singleValueContainer().decode(String.self)) ?? ""
-        switch raw.lowercased().trimmingCharacters(in: .whitespaces) {
-        case "tournament", "tournaments", "mtt", "sng", "tourney": self = .tournament
-        default: self = .cash
-        }
-    }
-}
-
-/// Сессия. Суммы buyIn / cashOut хранятся в валюте игры (`currency`).
+/// Кэш-сессия. Суммы buyIn / cashOut хранятся в валюте игры (`currency`).
 /// `exchangeRate` — сколько единиц валюты игры стоит 1 USD (например, 129 KES).
 /// Вся статистика считается в долларах через `profit`, `buyInUSD`, `cashOutUSD`.
 struct PokerSession: Identifiable, Codable, Equatable, Sendable {
     var id: UUID
     var date: Date
-    var type: SessionType
     var game: String
     var stakes: String
     var venue: String
@@ -42,7 +24,6 @@ struct PokerSession: Identifiable, Codable, Equatable, Sendable {
     init(
         id: UUID = UUID(),
         date: Date = .now,
-        type: SessionType = .cash,
         game: String = PokerSession.defaultGame,
         stakes: String = "",
         venue: String = "",
@@ -58,7 +39,6 @@ struct PokerSession: Identifiable, Codable, Equatable, Sendable {
     ) {
         self.id = id
         self.date = date
-        self.type = type
         self.game = game
         self.stakes = stakes
         self.venue = venue
@@ -74,7 +54,7 @@ struct PokerSession: Identifiable, Codable, Equatable, Sendable {
     }
 
     enum CodingKeys: String, CodingKey {
-        case id, date, type, game, stakes, venue, buyIn, cashOut, durationMinutes, notes
+        case id, date, game, stakes, venue, buyIn, cashOut, durationMinutes, notes
         case currency, exchangeRate, rebuyCount, createdAt, updatedAt
     }
 
@@ -85,7 +65,6 @@ struct PokerSession: Identifiable, Codable, Equatable, Sendable {
         let now = Date.now
         id = c.flexibleUUID(.id) ?? UUID()
         date = (try? c.decodeIfPresent(Date.self, forKey: .date)) ?? now
-        type = (try? c.decodeIfPresent(SessionType.self, forKey: .type)) ?? .cash
         game = c.flexibleString(.game) ?? PokerSession.defaultGame
         stakes = c.flexibleString(.stakes) ?? ""
         venue = c.flexibleString(.venue) ?? ""

@@ -26,16 +26,19 @@ struct Preferences: Codable, Equatable, Sendable {
     /// Последний введённый курс для каждой валюты: единиц за 1 USD.
     var rates: [String: Decimal] = [:]
     var lastBackupAt: Date?
+    /// Сохранённые места для выпадающего списка. nil — ещё не заполняли (берём из сессий).
+    var venues: [String]?
 
     init() {}
 
-    enum CodingKeys: String, CodingKey { case defaultCurrency, rates, lastBackupAt }
+    enum CodingKeys: String, CodingKey { case defaultCurrency, rates, lastBackupAt, venues }
 
     init(from decoder: Decoder) throws {
         let c = try decoder.container(keyedBy: CodingKeys.self)
         defaultCurrency = c.flexibleString(.defaultCurrency) ?? Currency.base
         rates = (try? c.decodeIfPresent([String: Decimal].self, forKey: .rates)) ?? [:]
         lastBackupAt = try? c.decodeIfPresent(Date.self, forKey: .lastBackupAt)
+        venues = try? c.decodeIfPresent([String].self, forKey: .venues)
     }
 
     func rate(for code: String) -> Decimal? {
@@ -304,7 +307,6 @@ final class SessionStore: ObservableObject {
         let last = sessions.max { $0.createdAt < $1.createdAt }
         let code = preferences.defaultCurrency
         return PokerSession(
-            type: last?.type ?? .cash,
             game: last?.game ?? PokerSession.defaultGame,
             stakes: last?.stakes ?? "",
             venue: last?.venue ?? "",
@@ -313,24 +315,60 @@ final class SessionStore: ObservableObject {
         )
     }
 
-    /// Ранее использованные значения для подсказок в формах.
-    func recentValues(_ keyPath: KeyPath<PokerSession, String>, limit: Int = 8) -> [String] {
-        var seen = Set<String>()
-        var result: [String] = []
-        for session in sessions.sorted(by: { $0.createdAt > $1.createdAt }) {
+    /// Ранее использованные значения: сначала самые частые, при равенстве — недавние.
+    func recentValues(_ keyPath: KeyPath<PokerSession, String>, limit: Int = 12) -> [String] {
+        var stats: [String: (value: String, count: Int, last: Date)] = [:]
+        for session in sessions {
             let value = session[keyPath: keyPath].trimmingCharacters(in: .whitespacesAndNewlines)
-            guard !value.isEmpty, seen.insert(value.lowercased()).inserted else { continue }
-            result.append(value)
-            if result.count == limit { break }
+            guard !value.isEmpty else { continue }
+            let key = value.lowercased()
+            var entry = stats[key] ?? (value, 0, .distantPast)
+            entry.count += 1
+            if session.date > entry.last { entry.last = session.date; entry.value = value }
+            stats[key] = entry
         }
-        return result
+        return stats.values
+            .sorted { $0.count == $1.count ? $0.last > $1.last : $0.count > $1.count }
+            .prefix(limit)
+            .map(\.value)
     }
+
+    // MARK: - Venues
+
+    /// Список мест для выпадающего меню: сохранённые, отсортированные по частоте игры.
+    var venueOptions: [String] {
+        let frequent = recentValues(\.venue, limit: 100)
+        guard let saved = preferences.venues else { return frequent }
+        let savedKeys = Set(saved.map { $0.lowercased() })
+        let ordered = frequent.filter { savedKeys.contains($0.lowercased()) }
+        let orderedKeys = Set(ordered.map { $0.lowercased() })
+        return ordered + saved.filter { !orderedKeys.contains($0.lowercased()) }
+    }
+
+    func rememberVenue(_ venue: String) {
+        let name = venue.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !name.isEmpty else { return }
+        updatePreferences { prefs in
+            var list = prefs.venues ?? recentValues(\.venue, limit: 100)
+            if !list.contains(where: { $0.caseInsensitiveCompare(name) == .orderedSame }) { list.append(name) }
+            prefs.venues = list
+        }
+    }
+
+    func removeVenue(_ venue: String) {
+        let current = venueOptions
+        updatePreferences { prefs in
+            prefs.venues = current.filter { $0.caseInsensitiveCompare(venue) != .orderedSame }
+        }
+    }
+
 
     // MARK: - Live session
 
     func startLive(_ live: LiveSession) throws {
         try persistLive(live)
         rememberCurrency(live.currency, rate: live.exchangeRate)
+        rememberVenue(live.venue)
     }
 
     func updateLive(_ mutate: (inout LiveSession) -> Void) {
@@ -345,6 +383,7 @@ final class SessionStore: ObservableObject {
         guard let live = liveSession else { throw StoreError.write("No live session is running") }
         let saved = try upsert(live.makeSession(cashOut: cashOut, endDate: endDate))
         rememberCurrency(live.currency, rate: live.exchangeRate)
+        rememberVenue(live.venue)
         try persistLive(nil)
         return saved
     }
@@ -466,6 +505,13 @@ final class SessionStore: ObservableObject {
         if let prefs = preview.preferences {
             updatePreferences { current in
                 current.rates.merge(prefs.rates) { _, new in new }
+                if let incoming = prefs.venues {
+                    var list = current.venues ?? recentValues(\.venue, limit: 100)
+                    for name in incoming where !list.contains(where: { $0.caseInsensitiveCompare(name) == .orderedSame }) {
+                        list.append(name)
+                    }
+                    current.venues = list
+                }
                 if replace || current.defaultCurrency == Currency.base { current.defaultCurrency = prefs.defaultCurrency }
             }
         }
@@ -489,7 +535,7 @@ final class SessionStore: ObservableObject {
 
     /// CSV для таблиц (Numbers / Google Sheets).
     func csvData() -> Data {
-        let header = "date,type,game,stakes,venue,currency,rate_per_usd,buy_in,cash_out,profit,rebuys,buy_in_usd,cash_out_usd,profit_usd,minutes,notes"
+        let header = "date,game,stakes,venue,currency,rate_per_usd,buy_in,cash_out,profit,rebuys,buy_in_usd,cash_out_usd,profit_usd,minutes,notes"
         let iso = ISO8601DateFormatter()
         func esc(_ text: String) -> String {
             "\"" + text.replacingOccurrences(of: "\"", with: "\"\"") + "\""
@@ -498,7 +544,6 @@ final class SessionStore: ObservableObject {
         let rows: [String] = sessions.map { s in
             var fields: [String] = []
             fields.append(iso.string(from: s.date))
-            fields.append(esc(s.type.shortName))
             fields.append(esc(s.game))
             fields.append(esc(s.stakes))
             fields.append(esc(s.venue))

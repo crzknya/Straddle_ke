@@ -11,7 +11,6 @@ struct LiveBuyIn: Identifiable, Codable, Equatable, Sendable {
 struct LiveSession: Identifiable, Codable, Equatable, Sendable {
     var id: UUID = UUID()
     var startDate: Date = .now
-    var type: SessionType = .cash
     var game: String = PokerSession.defaultGame
     var stakes: String = ""
     var venue: String = ""
@@ -51,7 +50,6 @@ struct LiveSession: Identifiable, Codable, Equatable, Sendable {
         return PokerSession(
             id: id,
             date: startDate,
-            type: type,
             game: game.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty ? PokerSession.defaultGame : game.trimmingCharacters(in: .whitespacesAndNewlines),
             stakes: stakes.trimmingCharacters(in: .whitespacesAndNewlines),
             venue: venue.trimmingCharacters(in: .whitespacesAndNewlines),

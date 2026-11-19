@@ -111,25 +111,54 @@ struct CurrencyRateFields: View {
     }
 }
 
-/// Текстовое поле с меню ранее использованных значений.
-struct SuggestingTextField: View {
+/// Выпадающий список сохранённых значений + «Ввести вручную…».
+struct ChoiceField: View {
     let title: String
     @Binding var text: String
-    let suggestions: [String]
+    let options: [String]
+    var placeholder: String = ""
     var capitalization: TextInputAutocapitalization = .words
 
+    @State private var manual = false
+    private static let manualTag = "\u{1}manual"
+
+    private var trimmed: String { text.trimmingCharacters(in: .whitespacesAndNewlines) }
+    private var knows: Bool { options.contains { $0.caseInsensitiveCompare(trimmed) == .orderedSame } }
+
     var body: some View {
-        HStack {
-            TextField(title, text: $text).textInputAutocapitalization(capitalization)
-            if !suggestions.isEmpty {
-                Menu {
-                    ForEach(suggestions, id: \.self) { value in
-                        Button(value) { text = value }
+        if manual || options.isEmpty {
+            HStack {
+                TextField(placeholder.isEmpty ? title : placeholder, text: $text)
+                    .textInputAutocapitalization(capitalization)
+                if !options.isEmpty {
+                    Button {
+                        manual = false
+                        if !knows { text = options.first ?? "" }
+                    } label: {
+                        Image(systemName: "list.bullet.circle").font(.title3)
                     }
-                } label: {
-                    Image(systemName: "chevron.down.circle").foregroundStyle(StraddleTheme.secondaryText)
+                    .buttonStyle(.borderless)
+                    .accessibilityLabel("Choose from list")
                 }
             }
+        } else {
+            Picker(title, selection: Binding(
+                get: { trimmed.isEmpty ? "" : (options.first { $0.caseInsensitiveCompare(trimmed) == .orderedSame } ?? trimmed) },
+                set: { value in
+                    if value == Self.manualTag {
+                        text = ""
+                        manual = true
+                    } else {
+                        text = value
+                    }
+                }
+            )) {
+                if trimmed.isEmpty { Text("Choose…").tag("") }
+                if !trimmed.isEmpty && !knows { Text(trimmed).tag(trimmed) }
+                ForEach(options, id: \.self) { Text($0).tag($0) }
+                Text("Enter manually…").tag(Self.manualTag)
+            }
+            .pickerStyle(.menu)
         }
     }
 }

@@ -29,6 +29,7 @@ struct SettingsView: View {
     @State private var convertCurrency = "KES"
     @State private var convertRate: Decimal?
     @State private var confirmConvert = false
+    @State private var newVenue = ""
 
     var body: some View {
         // Экспорт и импорт висят на разных view: на одном view они конфликтуют в iOS.
@@ -36,6 +37,7 @@ struct SettingsView: View {
             Form {
                 backupSection
                 importSection
+                venuesSection
                 currencySection
                 convertSection
                 aboutSection
@@ -203,6 +205,32 @@ struct SettingsView: View {
             message = "Import complete. You now have \(store.sessions.count) sessions."
         } catch {
             message = error.localizedDescription
+        }
+    }
+
+    // MARK: Venues
+
+    private var venuesSection: some View {
+        Section {
+            ForEach(store.venueOptions, id: \.self) { venue in
+                Text(venue)
+            }
+            .onDelete { offsets in
+                let list = store.venueOptions
+                for index in offsets { store.removeVenue(list[index]) }
+            }
+            HStack {
+                TextField("Add venue", text: $newVenue).textInputAutocapitalization(.words)
+                Button("Add") {
+                    store.rememberVenue(newVenue)
+                    newVenue = ""
+                }
+                .disabled(newVenue.trimmingCharacters(in: .whitespaces).isEmpty)
+            }
+        } header: {
+            Text("Venues")
+        } footer: {
+            Text("These appear in the dropdown when you start a session. New venues are added automatically. Swipe left to remove one from the list (past sessions are not changed).")
         }
     }
 

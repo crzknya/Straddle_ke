@@ -7,7 +7,6 @@ struct StartLiveSessionView: View {
     @Environment(\.dismiss) private var dismiss
     let onStarted: () -> Void
 
-    @State private var type: SessionType
     @State private var game: String
     @State private var stakes: String
     @State private var venue: String
@@ -20,7 +19,6 @@ struct StartLiveSessionView: View {
 
     init(template: PokerSession, onStarted: @escaping () -> Void) {
         self.onStarted = onStarted
-        _type = State(initialValue: template.type)
         _game = State(initialValue: template.game)
         _stakes = State(initialValue: template.stakes)
         _venue = State(initialValue: template.venue)
@@ -35,17 +33,13 @@ struct StartLiveSessionView: View {
 
     var body: some View {
         Form {
-            Section("Format") {
-                Picker("Session type", selection: $type) {
-                    ForEach(SessionType.allCases) { Text($0.rawValue).tag($0) }
-                }
-                .pickerStyle(.segmented)
+            Section("Where") {
+                ChoiceField(title: "Venue", text: $venue, options: store.venueOptions, placeholder: "Venue name")
             }
             Section("Game") {
-                SuggestingTextField(title: "Game", text: $game, suggestions: store.recentValues(\.game))
-                SuggestingTextField(title: type == .cash ? "Stakes (e.g. 50/100)" : "Tournament / level", text: $stakes,
-                                    suggestions: store.recentValues(\.stakes), capitalization: .never)
-                SuggestingTextField(title: "Venue", text: $venue, suggestions: store.recentValues(\.venue))
+                ChoiceField(title: "Game", text: $game, options: store.recentValues(\.game))
+                ChoiceField(title: "Stakes", text: $stakes, options: store.recentValues(\.stakes),
+                            placeholder: "Stakes (e.g. 50/100)", capitalization: .never)
             }
             Section("Currency") {
                 CurrencyRateFields(currency: $currency, rate: $rate)
@@ -80,7 +74,6 @@ struct StartLiveSessionView: View {
         let begin = startedEarlier ? startDate : .now
         var live = LiveSession()
         live.startDate = begin
-        live.type = type
         live.game = game.trimmingCharacters(in: .whitespacesAndNewlines)
         live.stakes = stakes.trimmingCharacters(in: .whitespacesAndNewlines)
         live.venue = venue.trimmingCharacters(in: .whitespacesAndNewlines)
@@ -222,9 +215,9 @@ struct LiveSessionView: View {
             }
 
             Section("Details") {
-                TextField("Game", text: binding(\.game, live))
-                TextField("Stakes", text: binding(\.stakes, live)).textInputAutocapitalization(.never)
-                TextField("Venue", text: binding(\.venue, live))
+                ChoiceField(title: "Game", text: binding(\.game, live), options: store.recentValues(\.game))
+                ChoiceField(title: "Stakes", text: binding(\.stakes, live), options: store.recentValues(\.stakes), capitalization: .never)
+                ChoiceField(title: "Venue", text: binding(\.venue, live), options: store.venueOptions, placeholder: "Venue name")
                 DatePicker("Start time", selection: binding(\.startDate, live), in: ...Date.now)
                 if live.currency != Currency.base {
                     HStack {
@@ -291,9 +284,9 @@ struct FinishLiveSessionView: View {
         let preview = live.makeSession(cashOut: cashOut ?? 0, endDate: endDate)
         return Form {
             Section {
-                AmountRow(title: live.type == .cash ? "Cash-out" : "Prize", value: $cashOut, currency: live.currency, rate: live.exchangeRate)
+                AmountRow(title: live."Cash-out", value: $cashOut, currency: live.currency, rate: live.exchangeRate)
             } footer: {
-                Text(live.type == .cash ? "How many chips you left with. Enter 0 if you busted." : "Enter 0 if you didn’t cash.")
+                Text("How many chips you left with. Enter 0 if you busted.")
             }
             Section {
                 DatePicker("Ended", selection: $endDate, in: live.startDate...Date.now.addingTimeInterval(60))

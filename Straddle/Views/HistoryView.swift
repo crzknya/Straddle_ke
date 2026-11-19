@@ -8,7 +8,7 @@ struct HistoryView: View {
 
     private var visibleSessions: [PokerSession] {
         store.sessions.filter { session in
-            let matchesType = filter == .all || (filter == .cash && session.type == .cash) || (filter == .tournaments && session.type == .tournament)
+            let matchesType = filter.matches(session)
             let text = "\(session.game) \(session.stakes) \(session.venue) \(session.notes) \(session.currency)"
             return matchesType && (query.isEmpty || text.localizedCaseInsensitiveContains(query))
         }
@@ -18,7 +18,7 @@ struct HistoryView: View {
         ZStack {
             StraddleTheme.background.ignoresSafeArea()
             if store.sessions.isEmpty {
-                EmptyStateView(icon: "clock.arrow.circlepath", title: "No sessions", message: "Log a cash game or tournament. You can edit every detail later.", actionTitle: "Add session") { sheet = .newSession }
+                EmptyStateView(icon: "clock.arrow.circlepath", title: "No sessions", message: "Log a cash game or start a live session. You can edit every detail later.", actionTitle: "Add session") { sheet = .newSession }
                     .padding()
             } else {
                 List {
@@ -65,9 +65,17 @@ struct HistoryView: View {
 
 private enum SessionFilter: String, CaseIterable, Identifiable {
     case all = "All"
-    case cash = "Cash"
-    case tournaments = "Tournaments"
+    case wins = "Wins"
+    case losses = "Losses"
     var id: String { rawValue }
+
+    func matches(_ session: PokerSession) -> Bool {
+        switch self {
+        case .all: true
+        case .wins: session.profit > 0
+        case .losses: session.profit < 0
+        }
+    }
 }
 
 struct SessionDetailView: View {
@@ -86,7 +94,7 @@ struct SessionDetailView: View {
                 ScrollView {
                     VStack(alignment: .leading, spacing: 16) {
                         VStack(alignment: .leading, spacing: 8) {
-                            Text(session.type.rawValue.uppercased()).font(.caption.weight(.bold)).tracking(1).foregroundStyle(StraddleTheme.cyan)
+                            Text(session.date.formatted(.dateTime.weekday(.wide).day().month(.wide)).uppercased()).font(.caption.weight(.bold)).tracking(1).foregroundStyle(StraddleTheme.cyan)
                             Text(session.game).font(.largeTitle.bold()).foregroundStyle(.white)
                             Text([session.stakes.isEmpty ? "No stakes entered" : session.stakes, session.venue].filter { !$0.isEmpty }.joined(separator: " • ")).foregroundStyle(StraddleTheme.secondaryText)
                             ProfitText(value: session.profit, font: .system(size: 36, weight: .bold, design: .rounded))
@@ -127,11 +135,11 @@ struct SessionDetailView: View {
             if session.isForeignCurrency {
                 detailLine("Currency", "\(code) • 1 USD = \(session.exchangeRate.currencyText(code))")
                 detailLine("Buy-in", "\(session.buyIn.currencyText(code)) (\(session.buyInUSD.currencyText))")
-                detailLine(session.type == .cash ? "Cash-out" : "Prize", "\(session.cashOut.currencyText(code)) (\(session.cashOutUSD.currencyText))")
+                detailLine("Cash-out", "\(session.cashOut.currencyText(code)) (\(session.cashOutUSD.currencyText))")
                 detailLine("Profit in \(code)", session.nativeProfit.currencyText(code, signed: true))
             } else {
                 detailLine("Buy-in", session.buyIn.currencyText)
-                detailLine(session.type == .cash ? "Cash-out" : "Prize", session.cashOut.currencyText)
+                detailLine("Cash-out", session.cashOut.currencyText)
             }
             if session.rebuyCount > 0 {
                 detailLine("Rebuys / add-ons", "\(session.rebuyCount)")

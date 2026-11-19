@@ -53,9 +53,9 @@ struct SessionRow: View {
     var body: some View {
         HStack(spacing: 12) {
             ZStack {
-                RoundedRectangle(cornerRadius: 11).fill(session.type == .cash ? StraddleTheme.purple.opacity(0.18) : StraddleTheme.cyan.opacity(0.16))
-                Image(systemName: session.type == .cash ? "suit.spade.fill" : "trophy.fill")
-                    .foregroundStyle(session.type == .cash ? StraddleTheme.purple : StraddleTheme.cyan)
+                RoundedRectangle(cornerRadius: 11).fill((session.profit >= 0 ? StraddleTheme.positive : StraddleTheme.negative).opacity(0.14))
+                Image(systemName: "suit.spade.fill")
+                    .foregroundStyle(session.profit >= 0 ? StraddleTheme.positive : StraddleTheme.negative)
             }
             .frame(width: 42, height: 42)
 
@@ -80,7 +80,7 @@ struct SessionRow: View {
     }
 
     private var detailText: String {
-        var parts = [session.stakes.isEmpty ? session.type.shortName : session.stakes,
+        var parts = [session.stakes.isEmpty ? session.game : session.stakes,
                      formatDuration(minutes: session.durationMinutes)]
         if session.rebuyCount > 0 {
             parts.append(session.rebuyCount == 1 ? "1 rebuy" : "\(session.rebuyCount) rebuys")
