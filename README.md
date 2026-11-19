@@ -1,6 +1,6 @@
 # Straddle
 
-Straddle is a privacy-first, local-only iPhone app for tracking poker sessions, profit, bankroll trends, and performance analytics.
+Straddle is a privacy-first, local-only iPhone app for tracking cash-game poker sessions, profit, bankroll trends, and performance analytics.
 
 <p align="center">
   <img src="docs/images/straddle-showcase.png" alt="Straddle dashboard, session history, and analytics displayed in restrained iPhone frames" width="100%">
@@ -20,22 +20,27 @@ Straddle is a privacy-first, local-only iPhone app for tracking poker sessions, 
 
 ## Features
 
-- Cash-game and tournament session tracking
+- Cash-game session tracking with a venue dropdown (saved venues are managed in Settings)
+- **Live sessions**: start a timer, add rebuys/add-ons, take breaks, finish with cash-out — the session is saved automatically and survives app restarts
+- **Multi-currency**: each session keeps its game currency and the rate you entered (1 USD = X); every statistic is shown in US dollars
+- **Backup & restore** (Settings tab): save to Files, share via Telegram/Mail/AirDrop, CSV export, import with merge/replace preview
 - Fast entry for date, game, stakes, venue, buy-in, cash-out, and duration
 - Cumulative profit chart and all-time dashboard
 - Hourly rate, total hours, session count, win rate, average win/loss, and best/worst sessions
-- Cash-versus-tournament results and tournament ROI
-- Venue and game performance breakdowns
+- Charts: bankroll by date/sessions/hours, monthly results, day of week, time of day, session length, result distribution, win/loss, stakes and venue comparisons
+- Stats: BB/hour, standard deviation per session and per hour, max drawdown, streaks, ROI on buy-ins, rebuy rate
+- Reports by month, year, stakes, venue, game; results calendar; filters by period, venue and stakes
+- Stakes, venue and game performance breakdowns, max drawdown, current streak
 - Searchable, editable session history
 - Premium near-black interface with restrained electric-purple and cyan accents
 
 ## Privacy and architecture
 
-Straddle is a self-contained native iOS app. It has no server, account system, advertising, analytics SDK, cloud service, or network client.
+Straddle is a self-contained native iOS app. It has no server, account system, advertising, or analytics SDK. The only network request is the optional "Load today's rate" button, which fetches public USD exchange rates from open.er-api.com.
 
-Session data is encoded as JSON and stored only inside the app's private Application Support container. Calculations and charts are produced locally on the phone. Standard iPhone backups may include the app container depending on the user's backup settings, but Straddle does not implement cloud synchronization or its own backup service.
+Session data is encoded as JSON and stored only inside the app's Documents folder (visible in Files → On My iPhone → Straddle). Calculations and charts are produced locally on the phone. Standard iPhone backups may include the app container depending on the user's backup settings, but Straddle does not implement cloud synchronization or its own backup service.
 
-Deleting the app deletes its local data unless that data can be recovered from an iPhone backup.
+Deleting the app deletes its local data. Before reinstalling, use Settings → Save backup to Files, then Settings → Import backup after installing. Installing a new build over the existing app keeps the data.
 
 ## Technology
 
@@ -115,11 +120,14 @@ The generated `Straddle.xcodeproj` is a local build artifact and is intentionall
 
 ## Data storage
 
-The app stores sessions in its private Application Support directory under:
+The app stores sessions in its Documents directory (older builds used Application Support and are migrated automatically):
 
 ```text
-Straddle/sessions.json
+sessions.json        # array of sessions
+live-session.json    # the session currently being played, if any
 ```
+
+Backups use a versioned wrapper (`{"format":"straddle-backup","version":2,"sessions":[…],"preferences":{…}}`). Import also accepts a bare `sessions.json` array, ISO-8601 or numeric dates, numbers written as strings, and skips damaged entries instead of failing.
 
 Writes are atomic. Dates use Foundation's reference-date representation so save/load round trips preserve exact values.
 

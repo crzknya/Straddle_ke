@@ -1,18 +1,15 @@
 import SwiftUI
-import UniformTypeIdentifiers
 
 struct HistoryView: View {
     @EnvironmentObject private var store: SessionStore
-    @Binding var showingNewSession: Bool
+    @Binding var sheet: RootSheet?
     @State private var query = ""
     @State private var filter: SessionFilter = .all
-    @State private var importing = false
-    @State private var pendingImport: [PokerSession]?
 
     private var visibleSessions: [PokerSession] {
         store.sessions.filter { session in
-            let matchesType = filter == .all || (filter == .cash && session.type == .cash) || (filter == .tournaments && session.type == .tournament)
-            let text = "\(session.game) \(session.stakes) \(session.venue) \(session.notes)"
+            let matchesType = filter.matches(session)
+            let text = "\(session.game) \(session.stakes) \(session.venue) \(session.notes) \(session.currency)"
             return matchesType && (query.isEmpty || text.localizedCaseInsensitiveContains(query))
         }
     }
@@ -21,7 +18,7 @@ struct HistoryView: View {
         ZStack {
             StraddleTheme.background.ignoresSafeArea()
             if store.sessions.isEmpty {
-                EmptyStateView(icon: "clock.arrow.circlepath", title: "No sessions", message: "Log a cash game or tournament. You can edit every detail later.", actionTitle: "Add session") { showingNewSession = true }
+                EmptyStateView(icon: "clock.arrow.circlepath", title: "No sessions", message: "Log a cash game or start a live session. You can edit every detail later.", actionTitle: "Add session") { sheet = .newSession }
                     .padding()
             } else {
                 List {
@@ -61,67 +58,24 @@ struct HistoryView: View {
             }
         }
         .toolbar {
-            ToolbarItem(placement: .topBarTrailing) {
-                Menu {
-                    ShareLink(item: store.fileURL) {
-                        Label("Export sessions.json", systemImage: "square.and.arrow.up")
-                    }
-                    .disabled(!FileManager.default.fileExists(atPath: store.fileURL.path))
-
-                    Button { importing = true } label: {
-                        Label("Import…", systemImage: "square.and.arrow.down")
-                    }
-                } label: {
-                    Image(systemName: "ellipsis.circle")
-                }
-            }
-            ToolbarItem(placement: .topBarTrailing) {
-                Button { showingNewSession = true } label: { Image(systemName: "plus").fontWeight(.bold) }
-            }
-        }
-        .fileImporter(isPresented: $importing,
-                      allowedContentTypes: [.json],
-                      allowsMultipleSelection: false) { result in
-            switch result {
-            case .success(let urls):
-                guard let url = urls.first else { return }
-                let scoped = url.startAccessingSecurityScopedResource()
-                defer { if scoped { url.stopAccessingSecurityScopedResource() } }
-                do {
-                    pendingImport = try store.decodeSessions(from: Data(contentsOf: url))
-                } catch {
-                    store.lastError = .decode(error.localizedDescription)
-                }
-            case .failure(let error):
-                store.lastError = .read(error.localizedDescription)
-            }
-        }
-        .confirmationDialog(
-            "Import \(pendingImport?.count ?? 0) sessions?",
-            isPresented: Binding(
-                get: { pendingImport != nil },
-                set: { if !$0 { pendingImport = nil } }
-            ),
-            titleVisibility: .visible
-        ) {
-            Button("Merge") {
-                if let values = pendingImport { try? store.merge(values) }
-                pendingImport = nil
-            }
-            Button("Replace all", role: .destructive) {
-                if let values = pendingImport { try? store.replaceAll(values) }
-                pendingImport = nil
-            }
-            Button("Cancel", role: .cancel) { pendingImport = nil }
+            ToolbarItem(placement: .topBarTrailing) { AddSessionMenu(sheet: $sheet) }
         }
     }
 }
 
 private enum SessionFilter: String, CaseIterable, Identifiable {
     case all = "All"
-    case cash = "Cash"
-    case tournaments = "Tournaments"
+    case wins = "Wins"
+    case losses = "Losses"
     var id: String { rawValue }
+
+    func matches(_ session: PokerSession) -> Bool {
+        switch self {
+        case .all: true
+        case .wins: session.profit > 0
+        case .losses: session.profit < 0
+        }
+    }
 }
 
 struct SessionDetailView: View {
@@ -140,9 +94,9 @@ struct SessionDetailView: View {
                 ScrollView {
                     VStack(alignment: .leading, spacing: 16) {
                         VStack(alignment: .leading, spacing: 8) {
-                            Text(session.type.rawValue.uppercased()).font(.caption.weight(.bold)).tracking(1).foregroundStyle(StraddleTheme.cyan)
+                            Text(session.date.formatted(.dateTime.weekday(.wide).day().month(.wide)).uppercased()).font(.caption.weight(.bold)).tracking(1).foregroundStyle(StraddleTheme.cyan)
                             Text(session.game).font(.largeTitle.bold()).foregroundStyle(.white)
-                            Text("\(session.stakes.isEmpty ? "No stakes entered" : session.stakes) • \(session.venue)").foregroundStyle(StraddleTheme.secondaryText)
+                            Text([session.stakes.isEmpty ? "No stakes entered" : session.stakes, session.venue].filter { !$0.isEmpty }.joined(separator: " • ")).foregroundStyle(StraddleTheme.secondaryText)
                             ProfitText(value: session.profit, font: .system(size: 36, weight: .bold, design: .rounded))
                         }.frame(maxWidth: .infinity, alignment: .leading).straddleCard()
 
@@ -174,12 +128,23 @@ struct SessionDetailView: View {
     }
 
     private func detailCard(_ session: PokerSession) -> some View {
-        VStack(spacing: 13) {
-            detailLine("Date", session.date.formatted(date: .long, time: .omitted))
+        let code = session.currency
+        return VStack(spacing: 13) {
+            detailLine("Date", session.date.formatted(date: .long, time: .shortened))
             Divider().overlay(Color.white.opacity(0.08))
-            detailLine("Buy-in", session.buyIn.currencyText)
-            detailLine("Cash-out", session.cashOut.currencyText)
-            detailLine("Duration", String(format: "%.1f hours", session.durationHours))
+            if session.isForeignCurrency {
+                detailLine("Currency", "\(code) • 1 USD = \(session.exchangeRate.currencyText(code))")
+                detailLine("Buy-in", "\(session.buyIn.currencyText(code)) (\(session.buyInUSD.currencyText))")
+                detailLine("Cash-out", "\(session.cashOut.currencyText(code)) (\(session.cashOutUSD.currencyText))")
+                detailLine("Profit in \(code)", session.nativeProfit.currencyText(code, signed: true))
+            } else {
+                detailLine("Buy-in", session.buyIn.currencyText)
+                detailLine("Cash-out", session.cashOut.currencyText)
+            }
+            if session.rebuyCount > 0 {
+                detailLine("Rebuys / add-ons", "\(session.rebuyCount)")
+            }
+            detailLine("Duration", formatDuration(minutes: session.durationMinutes))
             detailLine("Hourly", session.durationHours > 0 ? (session.profit / Decimal(session.durationHours)).signedCurrencyText : "—")
         }.straddleCard()
     }

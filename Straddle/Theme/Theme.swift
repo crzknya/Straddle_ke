@@ -31,9 +31,11 @@ extension View {
 struct ProfitText: View {
     let value: Decimal
     var font: Font = .headline
+    /// nil — доллары (по умолчанию), иначе код валюты игры.
+    var code: String? = nil
 
     var body: some View {
-        Text(value, format: .currency(code: Locale.current.currency?.identifier ?? "USD").sign(strategy: .always()))
+        Text(value.currencyText(code ?? Currency.base, signed: true))
             .font(font.monospacedDigit())
             .foregroundStyle(value >= 0 ? StraddleTheme.positive : StraddleTheme.negative)
     }
@@ -62,11 +64,3 @@ struct MetricCard: View {
     }
 }
 
-extension Decimal {
-    var currencyText: String {
-        formatted(.currency(code: Locale.current.currency?.identifier ?? "USD"))
-    }
-    var signedCurrencyText: String {
-        formatted(.currency(code: Locale.current.currency?.identifier ?? "USD").sign(strategy: .always()))
-    }
-}

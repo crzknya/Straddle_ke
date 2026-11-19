@@ -2,14 +2,14 @@ name: build-ipa
 on:
   workflow_dispatch:
   push:
-    branches: [main]
+    branches: [main, 'claude/**']
 
 env:
   BUNDLE_ID: com.straddle.local
 
 jobs:
   build:
-    runs-on: macos-26
+    runs-on: macos-15
     steps:
       - uses: actions/checkout@v4
       - run: brew install xcodegen
@@ -33,3 +33,17 @@ jobs:
         with:
           name: Straddle-unsigned
           path: Straddle.ipa
+      - name: Run unit tests
+        continue-on-error: true
+        run: |
+          UDID=$(xcrun simctl list devices available -j | python3 -c '
+          import json, sys
+          data = json.load(sys.stdin)["devices"]
+          ids = [d["udid"] for runtime, devs in data.items() if "iOS" in runtime for d in devs if d["name"].startswith("iPhone")]
+          print(ids[-1] if ids else "")
+          ')
+          echo "Simulator: $UDID"
+          xcodebuild -project Straddle.xcodeproj -scheme Straddle \
+            -destination "id=$UDID" \
+            CODE_SIGNING_ALLOWED=NO DEVELOPMENT_TEAM="" test
+

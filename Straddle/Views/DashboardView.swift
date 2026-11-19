@@ -2,9 +2,39 @@ import SwiftUI
 
 struct DashboardView: View {
     @EnvironmentObject private var store: SessionStore
-    @Binding var showingNewSession: Bool
+    @Binding var sheet: RootSheet?
 
     private var analytics: SessionAnalytics { AnalyticsEngine.calculate(store.sessions) }
+    private var last30: SessionAnalytics { AnalyticsEngine.calculate(AnalyticsEngine.sessions(store.sessions, in: .month)) }
+
+    private var streakText: String {
+        let streak = analytics.currentStreak
+        if streak == 0 { return "—" }
+        return streak > 0 ? "\(streak) W" : "\(-streak) L"
+    }
+
+    @ViewBuilder private var liveCard: some View {
+        if store.liveSession == nil {
+            Button { sheet = .startLive } label: {
+                HStack(spacing: 14) {
+                    Image(systemName: "play.fill")
+                        .font(.title3)
+                        .frame(width: 46, height: 46)
+                        .background(StraddleTheme.gradient, in: Circle())
+                        .foregroundStyle(.white)
+                    VStack(alignment: .leading, spacing: 2) {
+                        Text("Start live session").font(.headline).foregroundStyle(.white)
+                        Text("Timer, rebuys and cash-out — nothing to fill in later")
+                            .font(.caption).foregroundStyle(StraddleTheme.secondaryText)
+                    }
+                    Spacer()
+                    Image(systemName: "chevron.right").foregroundStyle(StraddleTheme.secondaryText)
+                }
+                .straddleCard()
+            }
+            .buttonStyle(.plain)
+        }
+    }
 
     var body: some View {
         ZStack {
@@ -12,6 +42,7 @@ struct DashboardView: View {
             ScrollView {
                 LazyVStack(alignment: .leading, spacing: 18) {
                     hero
+                    liveCard
                     trend
                     quickStats
                     recent
@@ -20,12 +51,10 @@ struct DashboardView: View {
             }
         }
         .navigationTitle("Straddle")
+        .navigationDestination(for: UUID.self) { id in SessionDetailView(sessionID: id) }
         .toolbar {
             ToolbarItem(placement: .topBarTrailing) {
-                Button { showingNewSession = true } label: {
-                    Image(systemName: "plus").fontWeight(.bold)
-                }
-                .accessibilityLabel("Add session")
+                AddSessionMenu(sheet: $sheet)
             }
         }
     }
@@ -56,7 +85,7 @@ struct DashboardView: View {
         VStack(alignment: .leading, spacing: 14) {
             Text("Profit trend").font(.headline).foregroundStyle(.white)
             if analytics.trend.isEmpty {
-                EmptyStateView(icon: "chart.xyaxis.line", title: "No trend yet", message: "Log your first session to start tracking.", actionTitle: "Add session") { showingNewSession = true }
+                EmptyStateView(icon: "chart.xyaxis.line", title: "No trend yet", message: "Log your first session to start tracking.", actionTitle: "Add session") { sheet = .newSession }
             } else {
                 ProfitTrendChart(points: analytics.trend)
             }
@@ -69,6 +98,9 @@ struct DashboardView: View {
         return LazyVGrid(columns: columns, spacing: 12) {
             MetricCard(title: "Hourly rate", value: analytics.hourlyRate.signedCurrencyText, tint: StraddleTheme.cyan)
             MetricCard(title: "Win rate", value: analytics.winRate.formatted(.percent.precision(.fractionLength(0))), tint: StraddleTheme.purple)
+            MetricCard(title: "Last 30 days", value: last30.totalProfit.signedCurrencyText,
+                       tint: last30.totalProfit >= 0 ? StraddleTheme.positive : StraddleTheme.negative)
+            MetricCard(title: "Streak", value: streakText, tint: analytics.currentStreak >= 0 ? StraddleTheme.positive : StraddleTheme.negative)
         }
     }
 
@@ -81,9 +113,10 @@ struct DashboardView: View {
             if store.sessions.isEmpty {
                 Text("Your latest sessions will appear here.").font(.subheadline).foregroundStyle(StraddleTheme.secondaryText).padding(.vertical, 10)
             } else {
-                ForEach(store.sessions.prefix(4)) { session in
-                    SessionRow(session: session)
-                    if session.id != store.sessions.prefix(4).last?.id { Divider().overlay(Color.white.opacity(0.08)) }
+                ForEach(store.sessions.prefix(5)) { session in
+                    NavigationLink(value: session.id) { SessionRow(session: session) }
+                        .buttonStyle(.plain)
+                    if session.id != store.sessions.prefix(5).last?.id { Divider().overlay(Color.white.opacity(0.08)) }
                 }
             }
         }

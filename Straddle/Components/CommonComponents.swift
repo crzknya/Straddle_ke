@@ -35,7 +35,7 @@ struct ProfitTrendChart: View {
             AxisMarks(position: .leading, values: .automatic(desiredCount: 4)) { value in
                 AxisValueLabel {
                     if let amount = value.as(Double.self) {
-                        Text(amount, format: .currency(code: Locale.current.currency?.identifier ?? "USD").precision(.fractionLength(0)))
+                        Text(amount, format: .currency(code: Currency.base).precision(.fractionLength(0)))
                     }
                 }
                 .foregroundStyle(StraddleTheme.secondaryText)
@@ -53,32 +53,39 @@ struct SessionRow: View {
     var body: some View {
         HStack(spacing: 12) {
             ZStack {
-                RoundedRectangle(cornerRadius: 11).fill(session.type == .cash ? StraddleTheme.purple.opacity(0.18) : StraddleTheme.cyan.opacity(0.16))
-                Image(systemName: session.type == .cash ? "suit.spade.fill" : "trophy.fill")
-                    .foregroundStyle(session.type == .cash ? StraddleTheme.purple : StraddleTheme.cyan)
+                RoundedRectangle(cornerRadius: 11).fill((session.profit >= 0 ? StraddleTheme.positive : StraddleTheme.negative).opacity(0.14))
+                Image(systemName: "suit.spade.fill")
+                    .foregroundStyle(session.profit >= 0 ? StraddleTheme.positive : StraddleTheme.negative)
             }
             .frame(width: 42, height: 42)
 
             VStack(alignment: .leading, spacing: 3) {
                 Text(session.game).font(.subheadline.weight(.semibold)).foregroundStyle(.white)
-                Text("\(session.venue) • \(session.date.formatted(date: .abbreviated, time: .omitted))")
+                Text("\(session.venue.isEmpty ? "No venue" : session.venue) • \(session.date.formatted(date: .abbreviated, time: .omitted))")
                     .font(.caption).foregroundStyle(StraddleTheme.secondaryText).lineLimit(1)
-                Text("\(session.stakes.isEmpty ? session.type.shortName : session.stakes) • \(durationText(session.durationMinutes))")
+                Text(detailText)
                     .font(.caption2).foregroundStyle(StraddleTheme.secondaryText)
             }
             Spacer()
-            ProfitText(value: session.profit)
+            VStack(alignment: .trailing, spacing: 2) {
+                ProfitText(value: session.profit)
+                if session.isForeignCurrency {
+                    Text(session.nativeProfit.currencyText(session.currency, signed: true))
+                        .font(.caption2.monospacedDigit()).foregroundStyle(StraddleTheme.secondaryText)
+                }
+            }
         }
         .padding(.vertical, 5)
         .contentShape(Rectangle())
     }
 
-    private func durationText(_ minutes: Int) -> String {
-        let hours = minutes / 60
-        let remainder = minutes % 60
-        if hours == 0 { return "\(remainder)m" }
-        if remainder == 0 { return "\(hours)h" }
-        return "\(hours)h \(remainder)m"
+    private var detailText: String {
+        var parts = [session.stakes.isEmpty ? session.game : session.stakes,
+                     formatDuration(minutes: session.durationMinutes)]
+        if session.rebuyCount > 0 {
+            parts.append(session.rebuyCount == 1 ? "1 rebuy" : "\(session.rebuyCount) rebuys")
+        }
+        return parts.joined(separator: " • ")
     }
 }
 
