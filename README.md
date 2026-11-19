@@ -23,7 +23,7 @@ The app runs fully on the phone: no account, no server, no ads. The only network
 
 ### Currencies
 - All statistics are **in US dollars**.
-- Each session stores the **game currency** and the **rate** at the time of play (`1 USD = 129 KES`).
+- Each session stores the **game currency** and the **rate** at the time of play.
 - Amounts are entered in the game currency, and the dollar equivalent is shown next to them.
 - The last currency and rate are filled in automatically. The rate can also be loaded online (open.er-api.com).
 - Settings has a bulk tool that marks old sessions entered in local currency as KES (or another currency) at a chosen rate.
