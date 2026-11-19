@@ -31,7 +31,7 @@ final class SessionStore: ObservableObject {
 
     init(fileURL: URL? = nil, fileManager: FileManager = .default, loadImmediately: Bool = true) {
         self.fileManager = fileManager
-        self.fileURL = fileURL ?? Self.defaultFileURL(fileManager: fileManager)
+        self.fileURL = fileURL ?? Self.resolvedFileURL(fileManager: fileManager)
         encoder = JSONEncoder()
         encoder.outputFormatting = [.prettyPrinted, .sortedKeys]
         encoder.dateEncodingStrategy = .custom { date, encoder in
@@ -46,10 +46,34 @@ final class SessionStore: ObservableObject {
         if loadImmediately { load() }
     }
 
+    // MARK: - Storage location
+
     static func defaultFileURL(fileManager: FileManager = .default) -> URL {
+        let root = fileManager.urls(for: .documentDirectory, in: .userDomainMask).first!
+        return root.appendingPathComponent("sessions.json")
+    }
+
+    static func legacyFileURL(fileManager: FileManager = .default) -> URL {
         let root = fileManager.urls(for: .applicationSupportDirectory, in: .userDomainMask).first!
         return root.appendingPathComponent("Straddle", isDirectory: true)
             .appendingPathComponent("sessions.json")
+    }
+
+    /// Documents виден в «Файлах». Если там пусто, а старый файл есть — переносим.
+    /// Если перенести не удалось, читаем старый путь, чтобы ничего не потерять.
+    static func resolvedFileURL(fileManager: FileManager = .default) -> URL {
+        let modern = defaultFileURL(fileManager: fileManager)
+        if fileManager.fileExists(atPath: modern.path) { return modern }
+        let legacy = legacyFileURL(fileManager: fileManager)
+        guard fileManager.fileExists(atPath: legacy.path) else { return modern }
+        do {
+            try fileManager.createDirectory(at: modern.deletingLastPathComponent(),
+                                            withIntermediateDirectories: true)
+            try fileManager.copyItem(at: legacy, to: modern)
+            return modern
+        } catch {
+            return legacy
+        }
     }
 
     func load() {
@@ -132,6 +156,26 @@ final class SessionStore: ObservableObject {
             lastError = storeError
             throw storeError
         }
+    }
+
+    // MARK: - Transfer
+
+    func decodeSessions(from data: Data) throws -> [PokerSession] {
+        do { return try decoder.decode([PokerSession].self, from: data) }
+        catch { throw StoreError.decode(error.localizedDescription) }
+    }
+
+    /// Объединяет по id. При конфликте побеждает более свежий updatedAt.
+    func merge(_ incoming: [PokerSession]) throws {
+        var byID = Dictionary(uniqueKeysWithValues: sessions.map { ($0.id, $0) })
+        for session in incoming {
+            if let existing = byID[session.id] {
+                if session.updatedAt >= existing.updatedAt { byID[session.id] = session }
+            } else {
+                byID[session.id] = session
+            }
+        }
+        try replaceAll(Array(byID.values))
     }
 
     private func persist() throws {
