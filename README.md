@@ -26,7 +26,7 @@ The app runs fully on the phone: no account, no server, no ads. The only network
 - Each session stores the **game currency** and the **rate** at the time of play.
 - Amounts are entered in the game currency, and the dollar equivalent is shown next to them.
 - The last currency and rate are filled in automatically. The rate can also be loaded online (open.er-api.com).
-- Settings has a bulk tool that marks old sessions entered in local currency as KES (or another currency) at a chosen rate.
+- Settings has a bulk tool that marks old sessions entered in a local currency as that currency at a chosen rate.
 
 ### Sessions and history
 - Quick entry of a completed session: date, venue, stakes, game, currency, total buy-in, number of rebuys, cash-out, duration, notes.
@@ -99,7 +99,7 @@ Backup format:
   "version": 2,
   "exportedAt": 785000000,
   "sessions": [ … ],
-  "preferences": { "defaultCurrency": "KES", "rates": { "KES": 129 }, "venues": [ … ] },
+  "preferences": { "defaultCurrency": "EUR", "rates": { "EUR": 0.92 }, "venues": [ … ] },
   "liveSession": { … }
 }
 ```

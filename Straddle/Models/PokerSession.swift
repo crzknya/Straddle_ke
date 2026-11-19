@@ -1,7 +1,7 @@
 import Foundation
 
 /// Кэш-сессия. Суммы buyIn / cashOut хранятся в валюте игры (`currency`).
-/// `exchangeRate` — сколько единиц валюты игры стоит 1 USD (например, 129 KES).
+/// `exchangeRate` — сколько единиц валюты игры стоит 1 USD (например, 0.92 EUR).
 /// Вся статистика считается в долларах через `profit`, `buyInUSD`, `cashOutUSD`.
 struct PokerSession: Identifiable, Codable, Equatable, Sendable {
     var id: UUID

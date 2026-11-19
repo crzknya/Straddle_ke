@@ -24,7 +24,7 @@ final class BackupAndCurrencyTests: XCTestCase {
     }
 
     func testProfitIsConvertedToUSD() {
-        let session = PokerSession(buyIn: 10_000, cashOut: 23_000, currency: "KES", exchangeRate: 130)
+        let session = PokerSession(buyIn: 10_000, cashOut: 23_000, currency: "EUR", exchangeRate: 130)
         XCTAssertEqual(session.nativeProfit, 13_000)
         XCTAssertEqual(session.profit, 100)
         XCTAssertEqual(session.buyInUSD.rounded(2), Decimal(string: "76.92"))
@@ -62,9 +62,9 @@ final class BackupAndCurrencyTests: XCTestCase {
 
     func testBackupRoundTripOnFreshInstall() throws {
         let store = makeStore()
-        try store.upsert(PokerSession(venue: "Club", buyIn: 5_000, cashOut: 9_000, currency: "KES", exchangeRate: 129))
+        try store.upsert(PokerSession(venue: "Club", buyIn: 5_000, cashOut: 9_000, currency: "EUR", exchangeRate: 129))
         try store.upsert(PokerSession(venue: "Home", buyIn: 100, cashOut: 40))
-        store.rememberCurrency("KES", rate: 129)
+        store.rememberCurrency("EUR", rate: 129)
         let data = try store.backupData()
 
         // «Переустановка»: новый пустой файл и чистые настройки.
@@ -82,7 +82,7 @@ final class BackupAndCurrencyTests: XCTestCase {
 
         XCTAssertEqual(Set(fresh.sessions.map(\.id)), Set(store.sessions.map(\.id)))
         XCTAssertEqual(fresh.sessions.map(\.profit).reduce(0, +), store.sessions.map(\.profit).reduce(0, +))
-        XCTAssertEqual(fresh.preferences.rates["KES"], 129)
+        XCTAssertEqual(fresh.preferences.rates["EUR"], 129)
 
         // Повторный импорт не создаёт дублей.
         try fresh.applyImport(try fresh.prepareImport(from: file), replace: false)
@@ -93,7 +93,7 @@ final class BackupAndCurrencyTests: XCTestCase {
         let store = makeStore()
         var live = LiveSession()
         live.startDate = Date.now.addingTimeInterval(-3 * 3600)
-        live.currency = "KES"
+        live.currency = "EUR"
         live.exchangeRate = 100
         live.buyIns = [LiveBuyIn(amount: 10_000, date: live.startDate)]
         try store.startLive(live)
@@ -127,10 +127,10 @@ final class BackupAndCurrencyTests: XCTestCase {
         let store = makeStore()
         try store.upsert(PokerSession(buyIn: 10_000, cashOut: 15_000))
         try store.upsert(PokerSession(buyIn: 100, cashOut: 200, currency: "EUR", exchangeRate: 0.5))
-        try store.assignCurrencyToUSDSessions("KES", rate: 125)
+        try store.assignCurrencyToUSDSessions("EUR", rate: 125)
         XCTAssertEqual(store.usdSessionCount, 0)
         XCTAssertEqual(store.sessions.map(\.profit).reduce(0, +), 40 + 200)
-        XCTAssertEqual(store.preferences.rates["KES"], 125)
+        XCTAssertEqual(store.preferences.rates["EUR"], 125)
     }
 
     func testAmountParser() {

@@ -5,7 +5,7 @@ enum Currency {
     static let base = "USD"
 
     /// Валюты, которые показываются первыми в списке.
-    static let favorites = ["USD", "KES", "EUR", "GBP", "RUB", "UAH", "KZT", "AED", "TZS", "UGX", "ZAR", "THB"]
+    static let favorites = ["USD", "EUR", "GBP", "RUB", "UAH", "KZT", "AED", "TZS", "UGX", "ZAR", "THB"]
 
     static let all: [String] = {
         let common = Set(Locale.commonISOCurrencyCodes)
