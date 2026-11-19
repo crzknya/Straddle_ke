@@ -26,7 +26,7 @@ struct SettingsView: View {
     @State private var message: String?
     @State private var confirmReplace = false
     @State private var confirmDeleteAll = false
-    @State private var convertCurrency = "KES"
+    @State private var convertCurrency = "EUR"
     @State private var convertRate: Decimal?
     @State private var confirmConvert = false
     @State private var newVenue = ""
@@ -277,7 +277,7 @@ struct SettingsView: View {
             } header: {
                 Text("Sessions recorded in local currency")
             } footer: {
-                Text("Older versions showed the phone’s local currency, so earlier sessions may have been entered in shillings but are now treated as dollars. This keeps the amounts and records them as the chosen currency at this rate. A single session can also be fixed via Edit.")
+                Text("Older versions showed the phone’s local currency, so earlier sessions may have been entered in a local currency but are now treated as dollars. This keeps the amounts and records them as the chosen currency at this rate. A single session can also be fixed via Edit.")
             }
         }
     }
