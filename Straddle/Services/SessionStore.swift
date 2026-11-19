@@ -495,11 +495,25 @@ final class SessionStore: ObservableObject {
             "\"" + text.replacingOccurrences(of: "\"", with: "\"\"") + "\""
         }
         func num(_ value: Decimal) -> String { NSDecimalNumber(decimal: value.rounded(2)).stringValue }
-        let rows = sessions.map { s in
-            [iso.string(from: s.date), esc(s.type.shortName), esc(s.game), esc(s.stakes), esc(s.venue), s.currency,
-             NSDecimalNumber(decimal: s.exchangeRate).stringValue, num(s.buyIn), num(s.cashOut), num(s.nativeProfit),
-             String(s.rebuyCount), num(s.buyInUSD), num(s.cashOutUSD), num(s.profit), String(s.durationMinutes), esc(s.notes)]
-                .joined(separator: ",")
+        let rows: [String] = sessions.map { s in
+            var fields: [String] = []
+            fields.append(iso.string(from: s.date))
+            fields.append(esc(s.type.shortName))
+            fields.append(esc(s.game))
+            fields.append(esc(s.stakes))
+            fields.append(esc(s.venue))
+            fields.append(s.currency)
+            fields.append(NSDecimalNumber(decimal: s.exchangeRate).stringValue)
+            fields.append(num(s.buyIn))
+            fields.append(num(s.cashOut))
+            fields.append(num(s.nativeProfit))
+            fields.append(String(s.rebuyCount))
+            fields.append(num(s.buyInUSD))
+            fields.append(num(s.cashOutUSD))
+            fields.append(num(s.profit))
+            fields.append(String(s.durationMinutes))
+            fields.append(esc(s.notes))
+            return fields.joined(separator: ",")
         }
         return Data(([header] + rows).joined(separator: "\n").utf8)
     }
