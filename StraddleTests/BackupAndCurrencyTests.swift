@@ -124,6 +124,16 @@ final class BackupAndCurrencyTests: XCTestCase {
         XCTAssertEqual(session.durationMinutes, 90)
     }
 
+    func testAssignCurrencyToLegacySessions() throws {
+        let store = makeStore()
+        try store.upsert(PokerSession(buyIn: 10_000, cashOut: 15_000))
+        try store.upsert(PokerSession(buyIn: 100, cashOut: 200, currency: "EUR", exchangeRate: 0.5))
+        try store.assignCurrencyToUSDSessions("KES", rate: 125)
+        XCTAssertEqual(store.usdSessionCount, 0)
+        XCTAssertEqual(store.sessions.map(\.profit).reduce(0, +), 40 + 200)
+        XCTAssertEqual(store.preferences.rates["KES"], 125)
+    }
+
     func testAmountParser() {
         XCTAssertEqual(AmountParser.parse("1 234,56"), Decimal(string: "1234.56"))
         XCTAssertEqual(AmountParser.parse("1,234.56"), Decimal(string: "1234.56"))

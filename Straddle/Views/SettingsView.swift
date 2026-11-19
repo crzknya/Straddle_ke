@@ -26,6 +26,9 @@ struct SettingsView: View {
     @State private var message: String?
     @State private var confirmReplace = false
     @State private var confirmDeleteAll = false
+    @State private var convertCurrency = "KES"
+    @State private var convertRate: Decimal?
+    @State private var confirmConvert = false
 
     var body: some View {
         // Экспорт и импорт висят на разных view: на одном view они конфликтуют в iOS.
@@ -34,6 +37,7 @@ struct SettingsView: View {
                 backupSection
                 importSection
                 currencySection
+                convertSection
                 aboutSection
             }
             .scrollContentBackground(.hidden)
@@ -68,6 +72,15 @@ struct SettingsView: View {
                             isPresented: $confirmReplace, titleVisibility: .visible) {
             Button("Replace all", role: .destructive) {
                 if let preview { apply(preview, replace: true) }
+            }
+        }
+        .confirmationDialog("Mark \(store.usdSessionCount) USD sessions as \(convertCurrency) at 1 USD = \(convertRate.map(AmountParser.editableText) ?? "?")?",
+                            isPresented: $confirmConvert, titleVisibility: .visible) {
+            Button("Convert") {
+                do {
+                    try store.assignCurrencyToUSDSessions(convertCurrency, rate: convertRate ?? 0)
+                    message = "Done. Statistics are now converted to USD."
+                } catch { message = error.localizedDescription }
             }
         }
         .confirmationDialog("Delete all \(store.sessions.count) sessions? Make a backup first.", isPresented: $confirmDeleteAll, titleVisibility: .visible) {
@@ -222,6 +235,22 @@ struct SettingsView: View {
             Text("Currency")
         } footer: {
             Text("All statistics are shown in US dollars. Each session keeps its own currency and the rate you entered, so later rate changes don’t rewrite history. Saved rates are pre-filled for new sessions.")
+        }
+    }
+
+    // MARK: Old sessions
+
+    @ViewBuilder private var convertSection: some View {
+        if store.usdSessionCount > 0 {
+            Section {
+                CurrencyRateFields(currency: $convertCurrency, rate: $convertRate)
+                Button("Mark \(store.usdSessionCount) USD sessions as \(convertCurrency)") { confirmConvert = true }
+                    .disabled(convertCurrency == Currency.base || (convertRate ?? 0) <= 0)
+            } header: {
+                Text("Sessions recorded in local currency")
+            } footer: {
+                Text("Older versions showed the phone’s local currency, so earlier sessions may have been entered in shillings but are now treated as dollars. This keeps the amounts and records them as the chosen currency at this rate. A single session can also be fixed via Edit.")
+            }
         }
     }
 

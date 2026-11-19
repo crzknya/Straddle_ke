@@ -518,6 +518,25 @@ final class SessionStore: ObservableObject {
         return Data(([header] + rows).joined(separator: "\n").utf8)
     }
 
+    /// Сессии, у которых валюта USD (в т.ч. все записанные до появления валют).
+    var usdSessionCount: Int { sessions.filter { !$0.isForeignCurrency }.count }
+
+    /// Помечает все USD-сессии как сыгранные в `code` по курсу `rate`. Суммы не меняются —
+    /// меняется лишь то, в какой валюте они записаны (для старых записей в местной валюте).
+    func assignCurrencyToUSDSessions(_ code: String, rate: Decimal) throws {
+        guard code != Currency.base, rate > 0 else { return }
+        let updated = sessions.map { session -> PokerSession in
+            guard !session.isForeignCurrency else { return session }
+            var value = session
+            value.currency = code
+            value.exchangeRate = rate
+            value.updatedAt = .now
+            return value
+        }
+        try commit(updated)
+        rememberCurrency(code, rate: rate)
+    }
+
     func deleteAllSessions() throws {
         try commit([])
     }
