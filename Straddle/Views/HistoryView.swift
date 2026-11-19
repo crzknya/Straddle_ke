@@ -1,10 +1,13 @@
 import SwiftUI
+import UniformTypeIdentifiers
 
 struct HistoryView: View {
     @EnvironmentObject private var store: SessionStore
     @Binding var showingNewSession: Bool
     @State private var query = ""
     @State private var filter: SessionFilter = .all
+    @State private var importing = false
+    @State private var pendingImport: [PokerSession]?
 
     private var visibleSessions: [PokerSession] {
         store.sessions.filter { session in
@@ -59,8 +62,57 @@ struct HistoryView: View {
         }
         .toolbar {
             ToolbarItem(placement: .topBarTrailing) {
+                Menu {
+                    ShareLink(item: store.fileURL) {
+                        Label("Export sessions.json", systemImage: "square.and.arrow.up")
+                    }
+                    .disabled(!FileManager.default.fileExists(atPath: store.fileURL.path))
+
+                    Button { importing = true } label: {
+                        Label("Import…", systemImage: "square.and.arrow.down")
+                    }
+                } label: {
+                    Image(systemName: "ellipsis.circle")
+                }
+            }
+            ToolbarItem(placement: .topBarTrailing) {
                 Button { showingNewSession = true } label: { Image(systemName: "plus").fontWeight(.bold) }
             }
+        }
+        .fileImporter(isPresented: $importing,
+                      allowedContentTypes: [.json],
+                      allowsMultipleSelection: false) { result in
+            switch result {
+            case .success(let urls):
+                guard let url = urls.first else { return }
+                let scoped = url.startAccessingSecurityScopedResource()
+                defer { if scoped { url.stopAccessingSecurityScopedResource() } }
+                do {
+                    pendingImport = try store.decodeSessions(from: Data(contentsOf: url))
+                } catch {
+                    store.lastError = .decode(error.localizedDescription)
+                }
+            case .failure(let error):
+                store.lastError = .read(error.localizedDescription)
+            }
+        }
+        .confirmationDialog(
+            "Import \(pendingImport?.count ?? 0) sessions?",
+            isPresented: Binding(
+                get: { pendingImport != nil },
+                set: { if !$0 { pendingImport = nil } }
+            ),
+            titleVisibility: .visible
+        ) {
+            Button("Merge") {
+                if let values = pendingImport { try? store.merge(values) }
+                pendingImport = nil
+            }
+            Button("Replace all", role: .destructive) {
+                if let values = pendingImport { try? store.replaceAll(values) }
+                pendingImport = nil
+            }
+            Button("Cancel", role: .cancel) { pendingImport = nil }
         }
     }
 }
