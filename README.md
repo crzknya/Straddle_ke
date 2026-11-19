@@ -64,13 +64,13 @@ You need a CI service that builds an **unsigned IPA**, which you then sign on th
 ### Codemagic (recommended)
 1. [codemagic.io](https://codemagic.io) → sign in with GitHub → Add application → this repository.
 2. The settings are picked up from [`codemagic.yaml`](codemagic.yaml) (workflow **Straddle unsigned IPA**).
-3. Builds run automatically on pushes to `main`, or manually via **Start new build**.
+3. A build starts automatically when code in `main` changes (edits to README, docs or CI settings are skipped), or manually via **Start new build**.
 4. Download `Straddle.ipa` from the build’s Artifacts.
 
 The free plan includes 500 minutes a month on Mac M2; one build takes about 5 minutes.
 
 ### GitHub Actions
-[`.github/workflows/main.yml`](.github/workflows/main.yml) builds the IPA and runs the tests on every push to `main`. The result is in Actions → run → Artifacts → `Straddle-unsigned`.
+[`.github/workflows/main.yml`](.github/workflows/main.yml) builds the IPA and runs the tests. It runs only manually: Actions → build-ipa → **Run workflow**. The result is in Actions → run → Artifacts → `Straddle-unsigned`.
 
 ### Updating without losing data
 - **Install the new build over the existing app, without deleting it.** Data and a running session are kept.
