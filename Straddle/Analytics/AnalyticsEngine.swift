@@ -34,6 +34,11 @@ struct SessionAnalytics: Equatable {
     let trend: [TrendPoint]
     let byVenue: [Breakdown]
     let byGame: [Breakdown]
+    let byStakes: [Breakdown]
+    /// Наибольшая просадка от пика накопленного профита (положительное число, USD).
+    let maxDrawdown: Decimal
+    /// Текущая серия: >0 — подряд в плюс, <0 — подряд в минус.
+    let currentStreak: Int
 
     var hourlyRate: Decimal {
         guard totalHours > 0 else { return 0 }
@@ -45,6 +50,8 @@ struct SessionAnalytics: Equatable {
         return (tournamentProfit / tournamentBuyIns).doubleValue
     }
     var losses: Int { sessionCount - wins }
+    var averageSessionHours: Double { sessionCount == 0 ? 0 : totalHours / Double(sessionCount) }
+    var averageProfit: Decimal { sessionCount == 0 ? 0 : totalProfit / Decimal(sessionCount) }
 }
 
 enum AnalyticsEngine {
@@ -62,9 +69,19 @@ enum AnalyticsEngine {
             return $0.date < $1.date
         }
         var running = Decimal.zero
+        var peak = Decimal.zero
+        var drawdown = Decimal.zero
         let trend = sorted.map { session -> TrendPoint in
             running += session.profit
+            peak = max(peak, running)
+            drawdown = max(drawdown, peak - running)
             return TrendPoint(id: session.id, date: session.date, cumulativeProfit: running)
+        }
+        var streak = 0
+        for session in sorted.reversed() {
+            let won = session.profit > 0
+            if streak == 0 { streak = won ? 1 : -1; continue }
+            if (streak > 0) == won { streak += won ? 1 : -1 } else { break }
         }
 
         return SessionAnalytics(
@@ -78,10 +95,13 @@ enum AnalyticsEngine {
             worstSession: sessions.min { $0.profit < $1.profit },
             cashProfit: cash.reduce(Decimal.zero) { $0 + $1.profit },
             tournamentProfit: tournaments.reduce(Decimal.zero) { $0 + $1.profit },
-            tournamentBuyIns: tournaments.reduce(Decimal.zero) { $0 + $1.buyIn },
+            tournamentBuyIns: tournaments.reduce(Decimal.zero) { $0 + $1.buyInUSD },
             trend: trend,
             byVenue: breakdown(sessions, key: { $0.venue }),
-            byGame: breakdown(sessions, key: { $0.game })
+            byGame: breakdown(sessions, key: { $0.game }),
+            byStakes: breakdown(sessions, key: { $0.stakes }),
+            maxDrawdown: drawdown,
+            currentStreak: streak
         )
     }
 

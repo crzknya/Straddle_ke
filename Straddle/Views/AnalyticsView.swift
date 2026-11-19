@@ -28,8 +28,12 @@ struct AnalyticsView: View {
                             averages
                             formatBreakdown
                             sessionExtremes
+                            risk
+                            BreakdownSection(title: "By stakes", values: analytics.byStakes)
                             BreakdownSection(title: "By venue", values: analytics.byVenue)
                             BreakdownSection(title: "By game", values: analytics.byGame)
+                            Text("All amounts in USD, converted with the rate saved in each session.")
+                                .font(.caption).foregroundStyle(StraddleTheme.secondaryText)
                         }
                     }.padding()
                 }
@@ -84,6 +88,16 @@ struct AnalyticsView: View {
         }.straddleCard()
     }
 
+    private var risk: some View {
+        VStack(alignment: .leading, spacing: 14) {
+            Text("Swings").font(.headline)
+            statLine("Max drawdown", (-analytics.maxDrawdown).signedCurrencyText, color: analytics.maxDrawdown > 0 ? StraddleTheme.negative : .white)
+            statLine("Average result", analytics.averageProfit.signedCurrencyText)
+            statLine("Average session", String(format: "%.1f h", analytics.averageSessionHours))
+            statLine("Current streak", analytics.currentStreak == 0 ? "—" : (analytics.currentStreak > 0 ? "\(analytics.currentStreak) winning" : "\(-analytics.currentStreak) losing"))
+        }.straddleCard()
+    }
+
     @ViewBuilder private var sessionExtremes: some View {
         VStack(alignment: .leading, spacing: 12) {
             Text("Highs & lows").font(.headline)
@@ -100,7 +114,7 @@ struct AnalyticsView: View {
         HStack {
             VStack(alignment: .leading, spacing: 2) {
                 Text(label).font(.caption).foregroundStyle(StraddleTheme.secondaryText)
-                Text(session.game + " • " + session.venue).font(.subheadline.weight(.medium)).lineLimit(1)
+                Text(session.game + " • " + session.date.formatted(date: .abbreviated, time: .omitted)).font(.subheadline.weight(.medium)).lineLimit(1)
             }
             Spacer()
             Text(session.profit.signedCurrencyText).font(.headline.monospacedDigit()).foregroundStyle(color)
