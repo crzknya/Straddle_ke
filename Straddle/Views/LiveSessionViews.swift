@@ -284,7 +284,7 @@ struct FinishLiveSessionView: View {
         let preview = live.makeSession(cashOut: cashOut ?? 0, endDate: endDate)
         return Form {
             Section {
-                AmountRow(title: live."Cash-out", value: $cashOut, currency: live.currency, rate: live.exchangeRate)
+                AmountRow(title: "Cash-out", value: $cashOut, currency: live.currency, rate: live.exchangeRate)
             } footer: {
                 Text("How many chips you left with. Enter 0 if you busted.")
             }
