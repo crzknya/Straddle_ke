@@ -10,7 +10,16 @@ workflows:
         - push
       branch_patterns:
         - pattern: 'main'
-        - pattern: 'claude/*'
+      cancel_previous_builds: true
+    # Не собирать, если поменялись только описание, картинки или настройки CI.
+    when:
+      changeset:
+        excludes:
+          - '**/*.md'
+          - 'docs/**'
+          - '.github/**'
+          - 'codemagic.yaml'
+          - 'LICENSE'
     scripts:
       - name: Generate Xcode project
         script: |

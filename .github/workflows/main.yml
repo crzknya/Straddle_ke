@@ -1,8 +1,13 @@
 name: build-ipa
+# Запуск только вручную: Actions → build-ipa → Run workflow.
+# Автоматическую сборку при изменении кода делает Codemagic (codemagic.yaml).
 on:
   workflow_dispatch:
-  push:
-    branches: [main, 'claude/**']
+
+# Если запустить повторно, предыдущая незавершённая сборка отменяется.
+concurrency:
+  group: build-ipa-${{ github.ref }}
+  cancel-in-progress: true
 
 env:
   BUNDLE_ID: com.straddle.local
