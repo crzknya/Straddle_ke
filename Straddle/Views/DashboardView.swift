@@ -3,6 +3,9 @@ import SwiftUI
 struct DashboardView: View {
     @EnvironmentObject private var store: SessionStore
     @Binding var sheet: RootSheet?
+    @Environment(\.scenePhase) private var scenePhase
+    /// Итог за всё время скрыт по умолчанию и снова прячется, когда приложение уходит в фон.
+    @State private var profitHidden = true
 
     private var analytics: SessionAnalytics { AnalyticsEngine.calculate(store.sessions) }
     private var last30: SessionAnalytics { AnalyticsEngine.calculate(AnalyticsEngine.sessions(store.sessions, in: .month)) }
@@ -51,6 +54,9 @@ struct DashboardView: View {
             }
         }
         .navigationTitle("Straddle")
+        .onChange(of: scenePhase) { _, phase in
+            if phase != .active { profitHidden = true }
+        }
         .navigationDestination(for: UUID.self) { id in SessionDetailView(sessionID: id) }
         .toolbar {
             ToolbarItem(placement: .topBarTrailing) {
@@ -61,8 +67,23 @@ struct DashboardView: View {
 
     private var hero: some View {
         VStack(alignment: .leading, spacing: 9) {
-            Text("ALL-TIME PROFIT").font(.caption.weight(.semibold)).tracking(1.3).foregroundStyle(StraddleTheme.secondaryText)
-            ProfitText(value: analytics.totalProfit, font: .system(size: 42, weight: .bold, design: .rounded))
+            HStack {
+                Text("ALL-TIME PROFIT").font(.caption.weight(.semibold)).tracking(1.3).foregroundStyle(StraddleTheme.secondaryText)
+                Spacer()
+                Image(systemName: profitHidden ? "eye.slash" : "eye")
+                    .font(.subheadline)
+                    .foregroundStyle(StraddleTheme.secondaryText)
+            }
+            Group {
+                if profitHidden {
+                    Text("••••••")
+                        .font(.system(size: 42, weight: .bold, design: .rounded))
+                        .foregroundStyle(StraddleTheme.secondaryText)
+                } else {
+                    ProfitText(value: analytics.totalProfit, font: .system(size: 42, weight: .bold, design: .rounded))
+                }
+            }
+            .contentTransition(.opacity)
             HStack(spacing: 16) {
                 Label("\(analytics.sessionCount) sessions", systemImage: "rectangle.stack")
                 Label(String(format: "%.1f hours", analytics.totalHours), systemImage: "clock")
@@ -71,6 +92,12 @@ struct DashboardView: View {
         }
         .frame(maxWidth: .infinity, alignment: .leading)
         .padding(22)
+        .contentShape(Rectangle())
+        .onTapGesture {
+            withAnimation(.easeInOut(duration: 0.2)) { profitHidden.toggle() }
+        }
+        .accessibilityAddTraits(.isButton)
+        .accessibilityHint(profitHidden ? "Shows all-time profit" : "Hides all-time profit")
         .background {
             RoundedRectangle(cornerRadius: 24, style: .continuous)
                 .fill(StraddleTheme.surface)
