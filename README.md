@@ -59,18 +59,14 @@ Import also accepts old `sessions.json` files, dates in any common format, and n
 
 ## Building without a Mac
 
-You need a CI service that builds an **unsigned IPA**, which you then sign on the phone (for example with GBox).
+The IPA is built by GitHub Actions ([`.github/workflows/main.yml`](.github/workflows/main.yml)) as an **unsigned IPA**, which you then sign on the phone (for example with GBox).
 
-### Codemagic (recommended)
-1. [codemagic.io](https://codemagic.io) → sign in with GitHub → Add application → this repository.
-2. The settings are picked up from [`codemagic.yaml`](codemagic.yaml) (workflow **Straddle unsigned IPA**).
-3. A build starts automatically when code in `main` changes (edits to README, docs or CI settings are skipped), or manually via **Start new build**.
-4. Download `Straddle.ipa` from the build’s Artifacts.
+1. A build starts automatically when app code in `main` changes. Edits to README, `docs/` or LICENSE don’t start one. You can also start it manually: Actions → **build-ipa** → **Run workflow**.
+2. A new build cancels the previous unfinished one.
+3. When it finishes, open the run → Artifacts → download `Straddle-unsigned` (inside is `Straddle.ipa`).
+4. The same run also executes the unit tests (in the “Run unit tests” step).
 
-The free plan includes 500 minutes a month on Mac M2; one build takes about 5 minutes.
-
-### GitHub Actions
-[`.github/workflows/main.yml`](.github/workflows/main.yml) builds the IPA and runs the tests. It runs only manually: Actions → build-ipa → **Run workflow**. The result is in Actions → run → Artifacts → `Straddle-unsigned`.
+The repository is public, so GitHub Actions minutes, including Mac, are free.
 
 ### Updating without losing data
 - **Install the new build over the existing app, without deleting it.** Data and a running session are kept.

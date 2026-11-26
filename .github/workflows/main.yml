@@ -1,10 +1,16 @@
 name: build-ipa
-# Запуск только вручную: Actions → build-ipa → Run workflow.
-# Автоматическую сборку при изменении кода делает Codemagic (codemagic.yaml).
+# Собирается автоматически, когда в main меняется код приложения,
+# и вручную: Actions → build-ipa → Run workflow.
 on:
   workflow_dispatch:
+  push:
+    branches: [main]
+    paths-ignore:
+      - '**/*.md'
+      - 'docs/**'
+      - 'LICENSE'
 
-# Если запустить повторно, предыдущая незавершённая сборка отменяется.
+# Новая сборка отменяет предыдущую незавершённую.
 concurrency:
   group: build-ipa-${{ github.ref }}
   cancel-in-progress: true
